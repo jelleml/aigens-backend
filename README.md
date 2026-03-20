@@ -209,7 +209,3 @@ Documentazione tecnica dettagliata disponibile in:
 3. Commit delle modifiche
 4. Push del branch
 5. Apri Pull Request
-
-## 📄 License
-
-[Specificare licenza]
