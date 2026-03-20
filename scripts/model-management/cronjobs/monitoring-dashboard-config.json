@@ -1,0 +1,264 @@
+{
+  "dashboard": {
+    "title": "Model Management System Monitoring",
+    "refresh": "1m",
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Provider Health Status",
+        "type": "gauge",
+        "datasource": "MySQL",
+        "targets": [
+          {
+            "query": "SELECT provider_name, status, last_check_at, response_time_ms FROM provider_health_status ORDER BY provider_name",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["mean"],
+            "fields": ""
+          },
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "healthy": { "color": "green", "index": 0 },
+                  "degraded": { "color": "yellow", "index": 1 },
+                  "unhealthy": { "color": "red", "index": 2 }
+                }
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 2 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Sync Operations",
+        "type": "timeseries",
+        "datasource": "MySQL",
+        "targets": [
+          {
+            "query": "SELECT started_at as time, provider_name, models_processed, models_created, models_updated FROM model_sync_logs WHERE completed_at IS NOT NULL ORDER BY started_at",
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": ["mean", "max", "sum"],
+            "displayMode": "table",
+            "placement": "bottom"
+          }
+        }
+      },
+      {
+        "title": "API Response Times",
+        "type": "timeseries",
+        "datasource": "MySQL",
+        "targets": [
+          {
+            "query": "SELECT last_check_at as time, provider_name, response_time_ms FROM provider_health_status ORDER BY last_check_at",
+            "format": "time_series"
+          }
+        ],
+        "options": {
+          "tooltip": {
+            "mode": "multi",
+            "sort": "none"
+          }
+        }
+      },
+      {
+        "title": "Models by Provider",
+        "type": "piechart",
+        "datasource": "MySQL",
+        "targets": [
+          {
+            "query": "SELECT p.name as provider, COUNT(m.id) as models FROM models m JOIN providers p ON m.id_provider = p.id GROUP BY p.name",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "title": "Active vs Inactive Models",
+        "type": "piechart",
+        "datasource": "MySQL",
+        "targets": [
+          {
+            "query": "SELECT is_active, COUNT(*) as count FROM models GROUP BY is_active",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": { "text": "Inactive", "color": "red" },
+                  "1": { "text": "Active", "color": "green" }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "title": "Sync Errors",
+        "type": "table",
+        "datasource": "MySQL",
+        "targets": [
+          {
+            "query": "SELECT started_at, provider_name, status, errors_count, error_details FROM model_sync_logs WHERE errors_count > 0 ORDER BY started_at DESC LIMIT 10",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "footer": {
+            "show": false
+          }
+        }
+      },
+      {
+        "title": "System Metrics",
+        "type": "stat",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job=\"model-management\"}",
+            "legendFormat": "Memory Usage"
+          },
+          {
+            "expr": "process_cpu_seconds_total{job=\"model-management\"}",
+            "legendFormat": "CPU Usage"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "orientation": "horizontal",
+          "textMode": "auto",
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto"
+        }
+      },
+      {
+        "title": "Recent Alerts",
+        "type": "table",
+        "datasource": "MySQL",
+        "targets": [
+          {
+            "query": "SELECT created_at, alert_type, level, message FROM system_alerts ORDER BY created_at DESC LIMIT 10",
+            "format": "table"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "footer": {
+            "show": false
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "critical": { "color": "red" },
+                  "warning": { "color": "yellow" },
+                  "info": { "color": "blue" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Sync Operations",
+        "datasource": "MySQL",
+        "enable": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "query": "SELECT started_at as time, CONCAT(provider_name, ' sync ', status) as text FROM model_sync_logs",
+        "textColumn": "text",
+        "timeColumn": "time"
+      },
+      {
+        "name": "System Alerts",
+        "datasource": "MySQL",
+        "enable": true,
+        "iconColor": "rgba(255, 96, 96, 1)",
+        "query": "SELECT created_at as time, CONCAT(alert_type, ': ', message) as text FROM system_alerts WHERE level = 'critical'",
+        "textColumn": "text",
+        "timeColumn": "time"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "provider",
+        "type": "query",
+        "datasource": "MySQL",
+        "query": "SELECT name FROM providers",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true
+      },
+      {
+        "name": "timeRange",
+        "type": "interval",
+        "query": "1h,6h,12h,24h,7d,30d",
+        "auto": false,
+        "current": {
+          "selected": true,
+          "text": "24h",
+          "value": "24h"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"],
+    "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
+  }
+}

@@ -1,0 +1,56 @@
+<mjml>
+	<mj-head>
+		<mj-title>Il tuo codice di accesso Aigens</mj-title>
+		<mj-font
+			name="Roboto"
+			href="https://fonts.googleapis.com/css?family=Roboto"
+		/>
+		<mj-attributes>
+			<mj-all font-family="Roboto, Arial" />
+		</mj-attributes>
+	</mj-head>
+	<mj-body background-color="#f4f4f4">
+		<mj-section background-color="#ffffff" padding="20px">
+			<mj-column>
+				<mj-text
+					font-size="24px"
+					color="#6b46c1"
+					font-weight="bold"
+					align="center"
+				>
+					Single Sign-On
+				</mj-text>
+
+				<mj-text font-size="16px" color="#333333" line-height="24px">
+					Ciao **first_name**,
+				</mj-text>
+
+				<mj-text font-size="16px" color="#333333" line-height="24px">
+					Ecco il tuo codice di accesso per **app_name**:
+				</mj-text>
+
+				<mj-text
+					font-size="32px"
+					color="#6b46c1"
+					font-weight="bold"
+					align="center"
+					padding="20px"
+				>
+					**magic_code**
+				</mj-text>
+
+				<mj-text font-size="14px" color="#666666" align="center">
+					Questo codice scade in 10 minuti
+				</mj-text>
+
+				<mj-text font-size="14px" color="#666666" line-height="20px">
+					Se non hai richiesto questo accesso, ignora questa email.
+				</mj-text>
+
+				<mj-text font-size="14px" color="#666666" line-height="20px">
+					Per assistenza, contattaci a **support_email**
+				</mj-text>
+			</mj-column>
+		</mj-section>
+	</mj-body>
+</mjml>

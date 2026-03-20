@@ -1,0 +1,1044 @@
+# AI Service Integration Patterns
+
+Questa regola definisce le convenzioni standard per l'implementazione di servizi di integrazione AI nel progetto Aigens Backend, basate sui pattern identificati in [anthropic.service.js](mdc:services/anthropic.service.js) e [ideogram.service.js](mdc:services/ideogram.service.js).
+
+## Struttura Base del Servizio
+
+### 1. Importazioni e Configurazione
+
+```javascript
+// Importazioni standard
+const axios = require("axios");
+const db = require("../database");
+const config = require("../config/config");
+
+// Importazione modelli database
+const {
+	User,
+	Chat,
+	Message,
+	Attachment,
+	Wallet,
+	Transaction,
+	MessageCost,
+	Model,
+	Provider,
+} = db.sequelize.models;
+
+// Configurazione client API
+const client = new ProviderClient({
+	apiKey: config.provider.apiKey,
+});
+
+// Cache modelli disponibili
+let AVAILABLE_MODELS = [];
+let lastModelsFetch = null;
+const CACHE_DURATION = 3600000; // 1 ora
+
+// Provider ID cache
+let PROVIDER_ID = null;
+```
+
+### 2. Funzioni Helper Standard
+
+#### Provider ID Management
+
+```javascript
+async function getProviderId() {
+	if (PROVIDER_ID) return PROVIDER_ID;
+	const provider = await Provider.findOne({
+		where: { name: "provider-name" },
+	});
+	if (!provider) throw new Error("Provider non trovato");
+	PROVIDER_ID = provider.id;
+	return PROVIDER_ID;
+}
+```
+
+#### Model Availability Check
+
+```javascript
+const isModelAvailable = async (modelId) => {
+	try {
+		const dbModel = await Model.findOne({
+			where: {
+				api_model_id: modelId,
+				id_provider: await getProviderId(),
+				is_active: true,
+			},
+		});
+		return !!dbModel;
+	} catch (error) {
+		console.error("Errore verifica modello:", error);
+		return false;
+	}
+};
+```
+
+#### Available Models Fetch
+
+```javascript
+const fetchAvailableModels = async () => {
+	try {
+		const dbModels = await Model.findAll({
+			where: {
+				id_provider: await getProviderId(),
+				is_active: true,
+			},
+		});
+
+		return dbModels.map((model) => ({
+			id: model.model_slug,
+			name: model.name,
+			description: model.description,
+			capabilities: model.capabilities || [],
+		}));
+	} catch (error) {
+		console.error("Errore recupero modelli:", error);
+		return [];
+	}
+};
+```
+
+## Pattern di Gestione Costi
+
+### 1. Calcolo Costi Standardizzato
+
+```javascript
+const calculateCost = async (
+	modelId,
+	inputTokens,
+	outputTokens = 0,
+	includeEstimatedOutput = false
+) => {
+	// Recupera modello dal database
+	const dbModel = await Model.findOne({ where: { api_model_id: modelId } });
+	if (!dbModel) throw new Error(`Modello ${modelId} non trovato`);
+
+	// Calcolo base_cost
+	const baseCost = calculateBaseCost(inputTokens, outputTokens, dbModel);
+
+	// Calcolo markup
+	const markup = calculateMarkup(baseCost, dbModel);
+	const totalCost = baseCost + markup;
+
+	return {
+		inputTokens,
+		outputTokens,
+		totalTokens: inputTokens + outputTokens,
+		baseCost,
+		markup,
+		totalCost,
+		model: dbModel.model_slug,
+		modelId: dbModel.id,
+	};
+};
+```
+
+### 2. Verifica Fondi Utente
+
+```javascript
+const checkUserFunds = async (userId, estimatedCost) => {
+	const wallet = await Wallet.findOne({ where: { user_id: userId } });
+	if (!wallet) throw new Error("Portafoglio utente non trovato");
+
+	const balance = parseFloat(wallet.balance || 0);
+	if (balance < estimatedCost) {
+		throw new Error(
+			`Fondi insufficienti. Costo: ${estimatedCost.toFixed(
+				6
+			)} USD. Saldo: ${balance.toFixed(6)} USD.`
+		);
+	}
+	return true;
+};
+```
+
+## Pattern di Gestione Messaggi
+
+### 1. Salvataggio Messaggi
+
+```javascript
+const saveMessage = async (messageData) => {
+	return await Message.create(messageData);
+};
+
+const saveMessageCost = async (costDetails, messageId, chatId, userId) => {
+	return await MessageCost.create({
+		message_id: messageId,
+		chat_id: chatId,
+		user_id: userId,
+		model_id: costDetails.modelId,
+		input_tokens: costDetails.inputTokens,
+		output_tokens: costDetails.outputTokens,
+		total_tokens: costDetails.totalTokens,
+		base_cost: costDetails.baseCost,
+		total_markup: costDetails.markup,
+		total_cost: costDetails.totalCost,
+		model_used: costDetails.model,
+	});
+};
+```
+
+### 2. Gestione Allegati
+
+```javascript
+const saveAttachments = async (attachments = [], messageId, chatId, userId) => {
+	if (!attachments || attachments.length === 0) return [];
+
+	const savedAttachments = [];
+	for (const attachment of attachments) {
+		if (typeof attachment === "number") {
+			const existingAttachment = await Attachment.findByPk(attachment);
+			if (existingAttachment) {
+				existingAttachment.message_id = messageId;
+				await existingAttachment.save();
+				savedAttachments.push(existingAttachment);
+			}
+		} else {
+			const newAttachment = await Attachment.create({
+				user_id: userId,
+				chat_id: chatId,
+				message_id: messageId,
+				file_name: attachment.file_name,
+				original_name: attachment.original_name,
+				file_path: attachment.file_path,
+				file_size: attachment.file_size,
+				mime_type: attachment.mime_type,
+				file_type: attachment.mime_type.startsWith("image/")
+					? "image"
+					: "other",
+			});
+			savedAttachments.push(newAttachment);
+		}
+	}
+	return savedAttachments;
+};
+```
+
+## Pattern di Gestione Wallet
+
+### 1. Aggiornamento Saldo
+
+```javascript
+const updateWalletBalance = async (userId, amount) => {
+	const wallet = await Wallet.findOne({ where: { user_id: userId } });
+	if (!wallet) throw new Error("Portafoglio utente non trovato");
+
+	wallet.balance = parseFloat(wallet.balance) + amount;
+	await wallet.save();
+
+	await Transaction.create({
+		user_id: userId,
+		wallet_id: wallet.id,
+		amount: amount,
+		currency: wallet.currency,
+		type: "usage",
+		payment_method: "system",
+		status: "completed",
+		description: "Utilizzo servizio AI",
+	});
+
+	return wallet;
+};
+```
+
+## Pattern di Gestione Errori
+
+### 1. Error Handling Standardizzato
+
+```javascript
+const processRequest = async (requestData) => {
+  const { model, prompt, chatId, userId } = requestData;
+
+  // Validazione parametri
+  if (!model || !prompt || !chatId || !userId) {
+    throw new Error('Parametri mancanti: model, prompt, chatId e userId sono obbligatori');
+  }
+
+  // Verifica modello
+  const isAvailable = await isModelAvailable(model);
+  if (!isAvailable) {
+    throw new Error(`Modello non supportato: ${model}`);
+  }
+
+  // Verifica utente e chat
+  const [user, chat] = await Promise.all([
+    User.findByPk(userId),
+    Chat.findByPk(chatId)
+  ]);
+
+  if (!user) throw new Error(`Utente con ID ${userId} non trovato`);
+  if (!chat) throw new Error(`Chat con ID ${chatId} non trovata`);
+
+  let userMessage;
+  try {
+    // Logica principale del servizio
+    userMessage = await saveMessage({...});
+
+    // Chiamata API
+    const response = await makeApiCall(requestData);
+
+    // Salvataggio risposta
+    const assistantMessage = await saveMessage({...});
+
+    // Aggiornamento costi e wallet
+    await saveMessageCost(costDetails, assistantMessage.id, chatId, userId);
+    await updateWalletBalance(userId, -costDetails.totalCost);
+
+    return { success: true, message: response, ... };
+
+  } catch (error) {
+    // Cleanup in caso di errore
+    if (userMessage) {
+      await MessageCost.destroy({ where: { message_id: userMessage.id } });
+      await Attachment.destroy({ where: { message_id: userMessage.id } });
+      await userMessage.destroy();
+    }
+    throw new Error(`Errore durante la richiesta: ${error.message}`);
+  }
+};
+```
+
+## Pattern Specifici per Text-to-Text
+
+### 1. Gestione Token
+
+```javascript
+const estimateOutputTokens = async (prompt, model) => {
+	const inputTokens = Math.ceil(prompt.length / 4);
+	const outputRatio = await modelService.getEstimatedOutputRatio(model);
+	return Math.min(Math.ceil(inputTokens * outputRatio), 4000);
+};
+```
+
+### 2. Processamento Allegati
+
+```javascript
+const processAttachments = async (attachments = []) => {
+	const processedAttachments = [];
+	const nonImageAttachments = [];
+
+	for (const attachment of attachments) {
+		let attachmentData = attachment;
+		if (typeof attachment === "number") {
+			attachmentData = await Attachment.findByPk(attachment);
+		}
+
+		if (attachmentData.mime_type.startsWith("image/")) {
+			processedAttachments.push({
+				type: "image",
+				source: {
+					type: "base64",
+					media_type: attachmentData.mime_type,
+					data: await readFileAsBase64(attachmentData.file_path),
+				},
+			});
+		} else {
+			nonImageAttachments.push(attachmentData);
+		}
+	}
+
+	return { processedAttachments, nonImageAttachments };
+};
+```
+
+## Pattern Specifici per Text-to-Image
+
+### 1. Gestione Immagini
+
+```javascript
+const downloadImageToTemp = async (imageUrl, fileName, userId, chatId) => {
+	let attempts = 0;
+	const maxAttempts = 3;
+
+	while (attempts < maxAttempts) {
+		attempts++;
+		try {
+			const response = await axios({
+				method: "get",
+				url: imageUrl,
+				responseType: "arraybuffer",
+				timeout: 30000,
+				maxContentLength: 20 * 1024 * 1024,
+			});
+
+			const imageBuffer = Buffer.from(response.data);
+
+			// Upload to GCS with local fallback
+			try {
+				const uploadResult = await gcsService.uploadFile(
+					imageBuffer,
+					fileName,
+					{
+						folder: `chat_${chatId}`,
+						makePublic: false,
+						metadata: { source: "ai-provider", userId, chatId },
+					}
+				);
+
+				return {
+					filePath: uploadResult.gsUrl,
+					fileName: uploadResult.fileName,
+					downloadUrl: uploadResult.downloadUrl,
+					storageType: "gcs",
+				};
+			} catch (gcsError) {
+				// Fallback to local storage
+				const localPath = await saveImageLocally(imageBuffer, fileName);
+				return {
+					filePath: localPath,
+					fileName: fileName,
+					downloadUrl: `/api/v1/uploads/images/${fileName}`,
+					storageType: "local",
+				};
+			}
+		} catch (error) {
+			if (attempts >= maxAttempts) {
+				throw new Error(
+					`Impossibile scaricare immagine dopo ${maxAttempts} tentativi`
+				);
+			}
+			await new Promise((resolve) =>
+				setTimeout(resolve, 1000 * attempts)
+			);
+		}
+	}
+};
+```
+
+### 2. Helper Functions per Conversioni
+
+```javascript
+const convertStyle = (style) => {
+	const styleMap = {
+		natural: "REALISTIC",
+		realistic: "REALISTIC",
+		anime: "ANIME",
+		painting: "PAINTING",
+	};
+	return styleMap[style.toLowerCase()] || "REALISTIC";
+};
+
+const convertAspectRatio = (ratio) => {
+	const aspectRatioMap = {
+		"1:1": "ASPECT_1_1",
+		"16:9": "ASPECT_16_9",
+		"9:16": "ASPECT_9_16",
+	};
+	return aspectRatioMap[ratio] || "ASPECT_1_1";
+};
+```
+
+## Pattern Specifici per Text-to-Video
+
+### 1. Validazione API Key
+
+```javascript
+const validateApiKey = () => {
+	if (!API_KEY) {
+		throw new Error("API key non configurata nel file .env");
+	}
+
+	if (API_KEY.length < 10) {
+		throw new Error("API key non valida (troppo corta)");
+	}
+
+	// Verifica formato base dell'API key
+	if (!API_KEY.startsWith("AIza")) {
+		logger.warn("API key potrebbe non essere nel formato corretto");
+	}
+
+	return true;
+};
+```
+
+### 2. Gestione Rate Limit
+
+```javascript
+const RATE_LIMIT = {
+	maxRequestsPerMinute: 10,
+	maxRequestsPerHour: 100,
+	requests: [],
+};
+
+const checkRateLimit = () => {
+	const now = Date.now();
+	const oneMinuteAgo = now - 60000;
+	const oneHourAgo = now - 3600000;
+
+	// Rimuovi richieste vecchie
+	RATE_LIMIT.requests = RATE_LIMIT.requests.filter(
+		(timestamp) => timestamp > oneHourAgo
+	);
+
+	// Conta richieste nell'ultimo minuto
+	const requestsLastMinute = RATE_LIMIT.requests.filter(
+		(timestamp) => timestamp > oneMinuteAgo
+	).length;
+
+	// Conta richieste nell'ultima ora
+	const requestsLastHour = RATE_LIMIT.requests.length;
+
+	if (requestsLastMinute >= RATE_LIMIT.maxRequestsPerMinute) {
+		throw new Error(
+			"Rate limit superato: troppe richieste al minuto. Riprova tra 60 secondi."
+		);
+	}
+
+	if (requestsLastHour >= RATE_LIMIT.maxRequestsPerHour) {
+		throw new Error(
+			"Rate limit superato: troppe richieste all'ora. Riprova tra 1 ora."
+		);
+	}
+
+	// Aggiungi questa richiesta
+	RATE_LIMIT.requests.push(now);
+
+	return true;
+};
+```
+
+### 3. Gestione Video con Long-Running Operations
+
+```javascript
+const downloadAndSaveVideo = async (videoBuffer, fileName, userId, chatId) => {
+	try {
+		const tempDir = path.join(os.tmpdir(), "video-service");
+
+		// Verifica spazio disponibile
+		try {
+			await fs.mkdir(tempDir, { recursive: true });
+		} catch (mkdirError) {
+			logger.error(
+				"Errore nella creazione della directory temporanea:",
+				mkdirError
+			);
+			throw new Error(
+				"Errore di storage: impossibile creare directory temporanea"
+			);
+		}
+
+		const filePath = path.join(tempDir, fileName);
+
+		// Salva il video buffer nel file temporaneo
+		try {
+			await fs.writeFile(filePath, videoBuffer);
+		} catch (writeError) {
+			logger.error(
+				"Errore nella scrittura del file temporaneo:",
+				writeError
+			);
+			throw new Error(
+				"Errore di storage: impossibile scrivere file temporaneo"
+			);
+		}
+
+		// Upload su Google Cloud Storage
+		const gcsPath = `videos/${userId}/${chatId}/${fileName}`;
+		try {
+			await gcsService.uploadFile(filePath, gcsPath);
+		} catch (uploadError) {
+			logger.error(
+				"Errore nell'upload su Google Cloud Storage:",
+				uploadError
+			);
+			throw new Error(
+				`Errore di storage: impossibile caricare file su cloud storage - ${uploadError.message}`
+			);
+		}
+
+		// Rimuovi il file temporaneo
+		try {
+			await fs.unlink(filePath);
+		} catch (unlinkError) {
+			logger.warn(
+				"Errore nella rimozione del file temporaneo:",
+				unlinkError
+			);
+			// Non blocchiamo l'operazione per questo errore
+		}
+
+		return `gs://${gcsService.bucketName}/${gcsPath}`;
+	} catch (error) {
+		logger.error("Errore nel download e salvataggio del video:", error);
+
+		// Classificazione errori di storage
+		if (error.message.includes("ENOSPC")) {
+			throw new Error(
+				"Errore di storage: spazio insufficiente sul disco"
+			);
+		} else if (error.message.includes("EACCES")) {
+			throw new Error("Errore di storage: permessi insufficienti");
+		} else if (error.message.includes("cloud storage")) {
+			throw new Error(`Errore di storage: ${error.message}`);
+		} else {
+			throw new Error(`Errore di storage: ${error.message}`);
+		}
+	}
+};
+```
+
+### 4. Polling per Long-Running Operations
+
+```javascript
+const sendRequest = async (prompt, model, userId, chatId, onStream = null) => {
+	try {
+		// Verifica API key
+		validateApiKey();
+
+		// Verifica rate limit
+		checkRateLimit();
+
+		// Inizia la generazione del video
+		if (onStream) {
+			onStream({
+				type: "video-generation-started",
+				data: { progress: 0 },
+			});
+		}
+
+		// Prepara la richiesta per l'API video
+		const videoRequest = {
+			instances: [
+				{
+					prompt: prompt,
+				},
+			],
+			parameters: {
+				aspectRatio: "16:9",
+				personGeneration: "dont_allow",
+			},
+		};
+
+		// Chiama l'API video
+		const videoResponse = await fetch(
+			`https://api.example.com/v1beta/models/video-model:predictLongRunning?key=${API_KEY}`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(videoRequest),
+			}
+		);
+
+		if (!videoResponse.ok) {
+			const errorData = await videoResponse.json();
+			throw new Error(
+				`Errore nell'API video: ${
+					errorData.error?.message || videoResponse.statusText
+				}`
+			);
+		}
+
+		const videoData = await videoResponse.json();
+		const operationName = videoData.name;
+
+		if (onStream) {
+			onStream({
+				type: "video-generation-progress",
+				data: { progress: 20, message: "Video in generazione..." },
+			});
+		}
+
+		// Polling per il completamento dell'operazione
+		let operationComplete = false;
+		let videoUrl = null;
+		let attempts = 0;
+		const maxAttempts = 60; // 5 minuti con polling ogni 5 secondi
+
+		while (!operationComplete && attempts < maxAttempts) {
+			await new Promise((resolve) => setTimeout(resolve, 5000)); // Attendi 5 secondi
+
+			const operationResponse = await fetch(
+				`https://api.example.com/v1/${operationName}?key=${API_KEY}`
+			);
+
+			if (!operationResponse.ok) {
+				throw new Error(
+					`Errore nel polling dell'operazione: ${operationResponse.statusText}`
+				);
+			}
+
+			const operationData = await operationResponse.json();
+
+			if (operationData.done) {
+				operationComplete = true;
+
+				if (operationData.error) {
+					throw new Error(
+						`Errore nella generazione del video: ${operationData.error.message}`
+					);
+				}
+
+				// Estrai l'URL del video dal risultato
+				if (
+					operationData.response &&
+					operationData.response.predictions
+				) {
+					const prediction = operationData.response.predictions[0];
+					if (prediction && prediction.videoUrl) {
+						videoUrl = prediction.videoUrl;
+					}
+				}
+
+				if (!videoUrl) {
+					throw new Error(
+						"Errore nella generazione del video: URL del video non trovato"
+					);
+				}
+			} else {
+				attempts++;
+				const progress = Math.min(20 + attempts * 2, 90); // Progresso da 20% a 90%
+
+				if (onStream) {
+					onStream({
+						type: "video-generation-progress",
+						data: {
+							progress: progress,
+							message: `Generazione in corso... (tentativo ${attempts}/${maxAttempts})`,
+						},
+					});
+				}
+			}
+		}
+
+		if (!operationComplete) {
+			throw new Error(
+				"Timeout nella generazione del video: operazione non completata entro 5 minuti"
+			);
+		}
+
+		// Download del video dall'URL fornito dall'API
+		const videoResponse = await fetch(videoUrl);
+		if (!videoResponse.ok) {
+			throw new Error(
+				`Errore nel download del video: ${videoResponse.statusText}`
+			);
+		}
+
+		const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+
+		// Genera un nome file univoco
+		const timestamp = Date.now();
+		const fileName = `video_${userId}_${chatId}_${timestamp}.mp4`;
+
+		// Salva il video usando la funzione helper
+		const filePath = await downloadAndSaveVideo(
+			videoBuffer,
+			fileName,
+			userId,
+			chatId
+		);
+
+		// Genera URL firmato per l'accesso
+		const signedUrl = await gcsService.getSignedUrl(gcsPath, {
+			action: "read",
+			expires: Date.now() + 15 * 60 * 1000, // 15 minuti
+		});
+
+		// Invia evento di completamento
+		if (onStream) {
+			onStream({
+				type: "video-generation-completed",
+				data: { progress: 100 },
+			});
+		}
+
+		return {
+			videoUrl: signedUrl,
+			fileName: fileName,
+			filePath: filePath,
+			fileSize: videoBuffer.length,
+		};
+	} catch (error) {
+		logger.error("Errore nell'invio della richiesta video:", error);
+
+		// Classificazione degli errori di rete
+		if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
+			throw new Error(
+				"Errore di connessione di rete. Verifica la connessione internet."
+			);
+		} else if (error.code === "ETIMEDOUT") {
+			throw new Error("Timeout della connessione. Riprova più tardi.");
+		} else if (error.message.includes("API key")) {
+			throw new Error(
+				"Errore di configurazione API key. Contatta l'amministratore."
+			);
+		} else {
+			throw new Error(`Errore di rete: ${error.message}`);
+		}
+	}
+};
+```
+
+### 5. Eventi di Streaming per Video
+
+```javascript
+// Eventi specifici per video generation
+const videoEvents = {
+	"video-generation-started": {
+		type: "video-generation-started",
+		data: {
+			messageId: userMessage.id,
+			modelId: modelId,
+			prompt: prompt,
+		},
+	},
+	"video-generation-progress": {
+		type: "video-generation-progress",
+		data: {
+			progress: progress,
+			message: `Generazione in corso... (tentativo ${attempts}/${maxAttempts})`,
+		},
+	},
+	"video-generation-completed": {
+		type: "video-generation-completed",
+		data: {
+			messageId: assistantMessage.id,
+			videoUrl: videoResult.videoUrl,
+			attachmentId: attachment.id,
+		},
+	},
+	"video-generation-error": {
+		type: "video-generation-error",
+		data: {
+			error: error.message,
+		},
+	},
+};
+```
+
+## Pattern di Streaming
+
+### 1. Adattatore sendRequest
+
+```javascript
+const sendRequest = async (
+	prompt,
+	model,
+	userId,
+	chatId,
+	agentType = "chat",
+	attachments = [],
+	onStream = null
+) => {
+	let fullText = "";
+	let inputTokens = 0;
+	let outputTokens = 0;
+
+	try {
+		const response = await client.messages.create({
+			model: model,
+			messages: [{ role: "user", content: prompt }],
+			max_tokens: 4000,
+			stream: !!onStream,
+		});
+
+		if (onStream) {
+			for await (const chunk of response) {
+				const delta = chunk.delta?.text || "";
+				if (delta) {
+					fullText += delta;
+					onStream(delta, chunk.usage);
+				}
+				if (chunk.usage) {
+					inputTokens = chunk.usage.input_tokens || inputTokens;
+					outputTokens = chunk.usage.output_tokens || outputTokens;
+				}
+			}
+		} else {
+			fullText = response.content?.[0]?.text || "";
+			if (response.usage) {
+				inputTokens = response.usage.input_tokens || 0;
+				outputTokens = response.usage.output_tokens || 0;
+			}
+		}
+
+		const cost = await calculateCost(model, inputTokens, outputTokens);
+		return { fullText, inputTokens, outputTokens, cost };
+	} catch (error) {
+		return { fullText, inputTokens, outputTokens, error: error.message };
+	}
+};
+```
+
+## Convenzioni di Esportazione
+
+### 1. Module Exports Standard
+
+```javascript
+module.exports = {
+	processRequest, // Metodo principale
+	calculateCost, // Calcolo costi
+	getAvailableModels, // Recupero modelli
+	isModelAvailable, // Verifica disponibilità
+	sendRequest, // Adattatore streaming
+	// Helper functions specifici del provider
+	convertStyle, // Solo per image services
+	convertAspectRatio, // Solo per image services
+	downloadImageToTemp, // Solo per image services
+	// Helper functions specifici per video services
+	validateApiKey, // Solo per video services
+	checkRateLimit, // Solo per video services
+	downloadAndSaveVideo, // Solo per video services
+};
+```
+
+## Best Practices
+
+### 1. Logging Centralizzato
+
+```javascript
+const { getLogger } = require("./logging");
+const logger = getLogger("provider-name", "service");
+
+// Uso consistente del logging
+logger.info(`Processing request for user ${userId}`);
+logger.warn(`Fallback to local storage: ${error.message}`);
+logger.error(`API call failed: ${error.message}`);
+```
+
+### 2. Gestione Cache
+
+```javascript
+const getAvailableModels = async () => {
+	if (
+		AVAILABLE_MODELS.length > 0 &&
+		lastModelsFetch &&
+		Date.now() - lastModelsFetch < CACHE_DURATION
+	) {
+		return AVAILABLE_MODELS;
+	}
+
+	const models = await fetchAvailableModels();
+	AVAILABLE_MODELS = models;
+	lastModelsFetch = Date.now();
+	return models;
+};
+```
+
+### 3. Timeout e Retry
+
+```javascript
+// Per chiamate API esterne
+const response = await axios.post(API_URL, payload, {
+	headers: { "Api-Key": config.provider.apiKey },
+	timeout: 30000,
+	maxContentLength: 20 * 1024 * 1024,
+});
+
+// Per download immagini
+let attempts = 0;
+const maxAttempts = 3;
+while (attempts < maxAttempts) {
+	try {
+		// Operazione
+		break;
+	} catch (error) {
+		attempts++;
+		if (attempts >= maxAttempts) throw error;
+		await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
+	}
+}
+```
+
+### 4. Validazione Input
+
+```javascript
+// Validazione parametri obbligatori
+if (!model || !prompt || !chatId || !userId) {
+	throw new Error(
+		"Parametri mancanti: model, prompt, chatId e userId sono obbligatori"
+	);
+}
+
+// Validazione tipi di file per allegati
+if (attachment.mime_type && !attachment.mime_type.startsWith("image/")) {
+	throw new Error("Tipo di file non supportato");
+}
+
+// Validazione per video
+if (attachment.mime_type && !attachment.mime_type.startsWith("video/")) {
+	throw new Error("Tipo di file video non supportato");
+}
+```
+
+### 5. Gestione Errori di Storage per Video
+
+```javascript
+// Classificazione errori di storage per video
+const classifyStorageError = (error) => {
+	if (error.message.includes("ENOSPC")) {
+		throw new Error("Errore di storage: spazio insufficiente sul disco");
+	} else if (error.message.includes("EACCES")) {
+		throw new Error("Errore di storage: permessi insufficienti");
+	} else if (error.message.includes("cloud storage")) {
+		throw new Error(`Errore di storage: ${error.message}`);
+	} else {
+		throw new Error(`Errore di storage: ${error.message}`);
+	}
+};
+
+// Gestione errori di rete per video
+const classifyNetworkError = (error) => {
+	if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
+		throw new Error(
+			"Errore di connessione di rete. Verifica la connessione internet."
+		);
+	} else if (error.code === "ETIMEDOUT") {
+		throw new Error("Timeout della connessione. Riprova più tardi.");
+	} else if (error.message.includes("API key")) {
+		throw new Error(
+			"Errore di configurazione API key. Contatta l'amministratore."
+		);
+	} else {
+		throw new Error(`Errore di rete: ${error.message}`);
+	}
+};
+```
+
+## Differenze tra Text-to-Text, Text-to-Image e Text-to-Video
+
+### Text-to-Text (Anthropic)
+
+-   Gestisce token di input/output
+-   Supporta allegati di testo e immagini
+-   Streaming di testo
+-   Calcolo costi basato su token
+
+### Text-to-Image (Ideogram)
+
+-   Non gestisce token
+-   Download e salvataggio immagini
+-   Supporto per stili e aspect ratio
+-   Calcolo costi basato su operazioni
+-   Fallback storage (GCS → locale)
+
+### Text-to-Video (Google Veo)
+
+-   Non gestisce token
+-   Long-running operations con polling
+-   Gestione rate limit specifica
+-   Download e salvataggio video
+-   Eventi di streaming progressivi
+-   Gestione file temporanei
+-   Calcolo costi basato su operazioni
+-   Validazione API key specifica
+
+## Note Importanti
+
+1. **Gestione Errori**: Sempre implementare cleanup in caso di errore
+2. **Validazione**: Validare sempre input e modelli prima dell'elaborazione
+3. **Logging**: Usare il sistema di logging centralizzato
+4. **Cache**: Implementare cache per modelli disponibili
+5. **Fallback**: Implementare fallback per storage e operazioni critiche
+6. **Timeout**: Impostare timeout appropriati per chiamate esterne
+7. **Retry**: Implementare retry logic per operazioni che possono fallire
+8. **Documentazione**: Documentare sempre parametri e return values
+   description:
+   globs:
+   alwaysApply: false
+
+---

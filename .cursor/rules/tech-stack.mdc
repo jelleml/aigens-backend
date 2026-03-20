@@ -1,0 +1,270 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Stack Tecnologico Aigens Backend
+
+## Panoramica Generale
+
+Il progetto Aigens Backend è un'applicazione Node.js/Express che gestisce un sistema di AI con integrazione di modelli multipli, autenticazione OAuth, gestione pagamenti e analytics.
+
+## Versione Node.js
+
+-   **Versione minima**: >=16.0.0
+-   **Raccomandazione**: Utilizzare Node.js 18.x o 20.x LTS per stabilità e performance
+
+## Framework Core
+
+### Express.js
+
+-   **Versione**: ^4.18.2
+-   **Status**: Stabile, versione LTS
+-   **Best Practice**:
+    -   Utilizzare middleware per sicurezza (helmet, cors)
+    -   Implementare rate limiting
+    -   Gestire errori centralmente
+
+### Database ORM
+
+-   **Sequelize**: ^6.35.2
+-   **Sequelize CLI**: ^6.6.3
+-   **Database**: MySQL2 ^3.6.5
+-   **Best Practice**:
+    -   Utilizzare migrazioni per modifiche schema
+    -   Implementare validazioni a livello modello
+    -   Gestire connessioni con pool
+
+## Autenticazione e Sicurezza
+
+### OAuth Providers
+
+-   **Passport.js**: ^0.7.0 (core)
+-   **Google OAuth**: passport-google-oauth20 ^2.0.0
+-   **GitHub OAuth**: passport-github2 ^0.1.12
+-   **Microsoft OAuth**: passport-microsoft ^2.1.0
+-   **OAuth2**: passport-oauth2 ^1.8.0
+
+### Passwordless Authentication
+
+-   **Passwordless**: ^1.1.3
+-   **Passwordless Sequelize**: ^0.2.0
+
+### Sicurezza
+
+-   **bcryptjs**: ^2.4.3 (hashing password)
+-   **jsonwebtoken**: ^9.0.2 (JWT)
+-   **helmet**: ^7.2.0 (security headers)
+-   **csurf**: ^1.10.0 (CSRF protection)
+-   **crypto-random-string**: ^5.0.0 (generazione stringhe sicure)
+
+## AI e Machine Learning
+
+### Provider AI
+
+-   **OpenAI**: ^4.87.3 (GPT models)
+-   **Anthropic**: @anthropic-ai/sdk ^0.39.0 (Claude models)
+-   **Google GenAI**: @google/genai ^1.12.0 (Gemini models)
+-   **DeepSeek**: Integrazione custom
+-   **OpenRouter**: Integrazione custom
+-   **Together AI**: Integrazione custom
+-   **Ideogram**: Integrazione custom
+
+### Best Practice AI
+
+-   Implementare circuit breaker per chiamate API
+-   Gestire rate limiting per provider
+-   Monitorare costi e usage
+-   Implementare fallback tra provider
+
+## Pagamenti e Finanza
+
+### Stripe
+
+-   **Stripe**: ^18.1.1
+-   **Best Practice**:
+    -   Utilizzare webhook per eventi
+    -   Implementare idempotency
+    -   Gestire errori di pagamento
+
+### Bitcoin Payments
+
+-   **BTCPay**: btcpay-greenfield-node-client ^1.7.0
+-   **Alby**: @getalby/sdk ^5.1.1
+
+## Storage e File Management
+
+### Google Cloud Storage
+
+-   **@google-cloud/storage**: ^7.16.0
+-   **Best Practice**:
+    -   Utilizzare signed URLs per upload
+    -   Implementare cleanup automatico
+    -   Gestire versioning
+
+### File Processing
+
+-   **Multer**: ^1.4.5-lts.1 (file upload)
+-   **Textract**: ^2.5.0 (estrazione testo)
+-   **PDF Parse**: ^1.1.1
+-   **Mammoth**: ^1.9.1 (Word documents)
+-   **PPTX Parser**: ^1.1.1
+-   **XLSX**: ^0.18.5 (Excel files)
+
+## Email e Comunicazione
+
+### Email Services
+
+-   **SendGrid**: @sendgrid/mail ^8.1.5
+-   **Nodemailer**: ^7.0.0
+-   **MJML**: ^4.15.3 (email templates)
+
+### Best Practice Email
+
+-   Utilizzare template MJML per responsive design
+-   Implementare retry logic per email fallite
+-   Gestire bounce e spam reports
+
+## Testing
+
+### Jest Framework
+
+-   **Jest**: ^29.7.0
+-   **Supertest**: ^7.0.0 (API testing)
+-   **Best Practice**:
+    -   Separare test unitari, integrazione e performance
+    -   Utilizzare fixtures per dati di test
+    -   Implementare coverage reporting
+
+## Logging e Monitoring
+
+### Winston Logger
+
+-   **Winston**: ^3.17.0
+-   **Best Practice**:
+    -   Configurare livelli di log appropriati
+    -   Implementare correlation ID
+    -   Separare log per ambiente
+
+## CLI e Utilities
+
+### Command Line Tools
+
+-   **Commander**: ^12.1.0 (CLI framework)
+-   **Inquirer**: ^8.2.6 (interactive prompts)
+-   **Chalk**: ^4.1.2 (colored output)
+-   **Boxen**: ^7.1.1 (boxed output)
+-   **Ora**: ^5.4.1 (spinners)
+-   **CLI Progress**: ^3.12.0 (progress bars)
+-   **CLI Table3**: ^0.6.5 (tables)
+-   **Columnify**: ^1.6.0 (column formatting)
+
+## Cron e Scheduling
+
+### Task Scheduling
+
+-   **Cron**: ^4.3.2
+-   **Node Cron**: ^3.0.3
+-   **Best Practice**:
+    -   Utilizzare per sync modelli AI
+    -   Implementare health checks
+    -   Gestire errori nei job
+
+## API Documentation
+
+### Swagger/OpenAPI
+
+-   **Swagger JSDoc**: ^6.2.8
+-   **Swagger UI Express**: ^5.0.1
+-   **Best Practice**:
+    -   Mantenere documentazione aggiornata
+    -   Utilizzare esempi reali
+    -   Versionare API
+
+## Utilities e Helpers
+
+### HTTP Client
+
+-   **Axios**: ^1.8.1
+-   **Best Practice**:
+    -   Configurare timeout appropriati
+    -   Implementare retry logic
+    -   Gestire errori HTTP
+
+### Data Processing
+
+-   **Moment**: ^2.30.1 (date handling)
+-   **UUID**: ^11.1.0 (unique identifiers)
+-   **JS-YAML**: ^4.1.0 (YAML parsing)
+-   **YAMLJS**: ^0.3.0 (YAML utilities)
+
+### Validation
+
+-   **Express Validator**: ^7.2.1
+-   **Best Practice**:
+    -   Validare input a livello middleware
+    -   Implementare sanitizzazione
+    -   Gestire errori di validazione
+
+## Development Tools
+
+### Development Dependencies
+
+-   **ESLint**: ^8.56.0 (linting)
+-   **Nodemon**: ^3.0.2 (auto-restart)
+-   **Multer**: ^1.4.5-lts.1 (file upload)
+
+## Best Practices Generali
+
+### Versioning
+
+-   Utilizzare caret (^) per versioni minori e patch
+-   Aggiornare regolarmente le dipendenze
+-   Testare dopo aggiornamenti major
+
+### Security
+
+-   Mantenere dipendenze aggiornate
+-   Utilizzare npm audit regolarmente
+-   Implementare security headers
+
+### Performance
+
+-   Utilizzare connection pooling per database
+-   Implementare caching appropriato
+-   Monitorare memory usage
+
+### Error Handling
+
+-   Implementare error handling centralizzato
+-   Loggare errori appropriatamente
+-   Implementare retry logic per operazioni critiche
+
+## Raccomandazioni per Aggiornamenti
+
+### Priorità Alta
+
+1. **Security Updates**: Aggiornare immediatamente vulnerabilità
+2. **Major Versions**: Pianificare aggiornamenti major
+3. **Dependencies**: Mantenere aggiornate le dipendenze core
+
+### Processo di Aggiornamento
+
+1. Testare in ambiente di sviluppo
+2. Eseguire test suite completa
+3. Deploy in staging
+4. Monitorare performance e errori
+5. Deploy in produzione
+
+## Note Importanti
+
+-   Il progetto utilizza Node.js >=16.0.0
+-   Tutte le dipendenze sono aggiornate alle versioni stabili
+-   Implementare monitoring per le dipendenze critiche
+-   Mantenere documentazione aggiornata per le integrazioni
+    description:
+    globs:
+    alwaysApply: false
+
+---

@@ -1,0 +1,140 @@
+<mjml>
+	<mj-head>
+		<mj-title>Conferma Acquisto Crediti - Aigens</mj-title>
+		<mj-font
+			name="Roboto"
+			href="https://fonts.googleapis.com/css?family=Roboto"
+		/>
+		<mj-attributes>
+			<mj-all font-family="Roboto, Arial" />
+		</mj-attributes>
+	</mj-head>
+	<mj-body background-color="#f4f4f4">
+		<mj-section background-color="#ffffff" padding="20px">
+			<mj-column>
+				<mj-text
+					font-size="24px"
+					color="#6b46c1"
+					font-weight="bold"
+					align="center"
+				>
+					🎉 Acquisto Completato!
+				</mj-text>
+
+				<mj-text font-size="16px" color="#333333" line-height="24px">
+					Ciao **first_name**,
+				</mj-text>
+
+				<mj-text font-size="16px" color="#333333" line-height="24px">
+					Grazie per il tuo acquisto! I tuoi crediti sono stati
+					accreditati con successo sul tuo account **app_name**.
+				</mj-text>
+			</mj-column>
+		</mj-section>
+
+		<!-- Dettagli Transazione -->
+		<mj-section background-color="#f8f9fa" padding="15px">
+			<mj-column>
+				<mj-text
+					font-size="18px"
+					color="#2d3748"
+					font-weight="bold"
+					align="center"
+				>
+					📋 Dettagli Transazione
+				</mj-text>
+
+				<mj-text font-size="14px" color="#4a5568" line-height="20px">
+					<strong>ID Transazione:</strong> **transaction_id**
+				</mj-text>
+
+				<mj-text font-size="14px" color="#4a5568" line-height="20px">
+					<strong>Data:</strong> **transaction_date**
+				</mj-text>
+
+				<mj-text font-size="14px" color="#4a5568" line-height="20px">
+					<strong>Metodo di Pagamento:</strong>
+					**payment_method**
+				</mj-text>
+
+				<mj-text font-size="14px" color="#4a5568" line-height="20px">
+					<strong>Importo Pagato:</strong> **amount_paid**
+					**currency**
+				</mj-text>
+			</mj-column>
+		</mj-section>
+
+		<!-- Crediti Acquistati -->
+		<mj-section background-color="#e6fffa" padding="15px">
+			<mj-column>
+				<mj-text
+					font-size="18px"
+					color="#2d3748"
+					font-weight="bold"
+					align="center"
+				>
+					💎 Crediti Acquistati
+				</mj-text>
+
+				<mj-text font-size="16px" color="#4a5568" line-height="20px">
+					<strong>Crediti Base:</strong> **base_credits** crediti
+				</mj-text>
+
+				**bonus_credits_section**
+
+				<mj-text
+					font-size="20px"
+					color="#6b46c1"
+					font-weight="bold"
+					align="center"
+					padding="10px"
+				>
+					🎯
+					<strong>TOTALE: **total_credits** crediti</strong>
+				</mj-text>
+			</mj-column>
+		</mj-section>
+
+		<!-- Saldo Aggiornato -->
+		<mj-section background-color="#f0fff4" padding="15px">
+			<mj-column>
+				<mj-text
+					font-size="16px"
+					color="#2d3748"
+					font-weight="bold"
+					align="center"
+				>
+					💰 Saldo Aggiornato
+				</mj-text>
+
+				<mj-text
+					font-size="18px"
+					color="#38a169"
+					font-weight="bold"
+					align="center"
+				>
+					**new_balance** crediti
+				</mj-text>
+			</mj-column>
+		</mj-section>
+
+		<!-- Footer -->
+		<mj-section background-color="#ffffff" padding="20px">
+			<mj-column>
+				<mj-text font-size="14px" color="#666666" line-height="20px">
+					I tuoi crediti sono ora disponibili per utilizzare tutti i
+					modelli AI su **app_name**.
+				</mj-text>
+
+				<mj-text font-size="14px" color="#666666" line-height="20px">
+					Se hai domande o necessiti assistenza, non esitare a
+					contattarci a **support_email**
+				</mj-text>
+
+				<mj-text font-size="14px" color="#666666" line-height="20px">
+					Grazie per aver scelto **app_name**!
+				</mj-text>
+			</mj-column>
+		</mj-section>
+	</mj-body>
+</mjml>

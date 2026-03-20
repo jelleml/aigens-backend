@@ -1,0 +1,345 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Struttura del Progetto Aigens Backend
+
+## Panoramica Generale
+
+Il progetto `aigens-backend` è un'applicazione Node.js/Express che gestisce un sistema di AI con integrazione di modelli multipli, autenticazione OAuth, gestione pagamenti e analytics.
+
+## Struttura delle Directory Principali
+
+### 📁 **Root Directory**
+
+```
+aigens-backend/
+├── server.js                    # Entry point principale dell'applicazione
+├── package.json                 # Dipendenze e configurazione npm
+├── jest.config.js              # Configurazione Jest per i test
+├── .sequelizerc                # Configurazione Sequelize ORM
+└── README.md                   # Documentazione principale
+```
+
+### 📁 **API Layer** (`/api`)
+
+```
+api/
+└── v1/                         # API version 1
+    ├── index.js                # Router principale API v1
+    ├── auth.js                 # Endpoint autenticazione
+    ├── chats.js                # Gestione chat
+    ├── messages.js             # Gestione messaggi
+    ├── users.js                # Gestione utenti
+    ├── models.js               # Gestione modelli AI
+    ├── payments.js             # Gestione pagamenti
+    ├── stripe.js               # Integrazione Stripe
+    ├── btc-payments.js         # Pagamenti Bitcoin
+    ├── wallets.js              # Gestione wallet
+    ├── folders.js              # Gestione cartelle
+    ├── prompts.js              # Gestione prompt
+    ├── leads.js                # Gestione lead
+    ├── users_stats.js          # Statistiche utenti
+    ├── user-accesses.js        # Gestione accessi utente
+    ├── user-settings.js        # Impostazioni utente
+    ├── message-recovery.js     # Recupero messaggi
+    ├── email-queue.js          # Coda email
+    └── health/                 # Endpoint health check
+```
+
+### 📁 **Services Layer** (`/services`)
+
+```
+services/
+├── auth.service.js             # Servizio autenticazione
+├── model.service.js            # Gestione modelli AI
+├── anthropic.service.js        # Integrazione Anthropic
+├── openai.service.js           # Integrazione OpenAI
+├── deepseek.service.js         # Integrazione DeepSeek
+├── openrouter.service.js       # Integrazione OpenRouter
+├── ideogram.service.js         # Integrazione Ideogram
+├── google-veo.service.js       # Integrazione Google Veo
+├── together.service.js         # Integrazione Together AI
+├── stripe.service.js           # Integrazione Stripe
+├── btc-payments.service.js     # Pagamenti Bitcoin
+├── emailer.service.js          # Servizio email
+├── mailer.service.js           # Servizio mailer
+├── analytics.service.js        # Servizio analytics
+├── cost-calculator.service.js  # Calcolo costi
+├── savings.service.js          # Gestione risparmi
+├── folder.service.js           # Gestione cartelle
+├── lead.service.js             # Gestione lead
+├── user-access.service.js      # Gestione accessi
+├── user-settings.service.js    # Impostazioni utente
+├── message-recovery.service.js # Recupero messaggi
+├── file-content-extractor.service.js # Estrazione contenuti file
+├── google-cloud-storage.service.js # Google Cloud Storage
+├── python-addon.service.js     # Integrazione Python
+├── purchase-notification.service.js # Notifiche acquisti
+├── portal.service.js           # Servizio portal
+├── passwordless.service.js     # Autenticazione passwordless
+├── credit-conversion.service.js # Conversione crediti
+├── exchange-rate.service.js    # Tassi di cambio
+├── vbout-email-client.js      # Client email Vbout
+├── model-management/           # Gestione modelli
+└── logging/                    # Sistema di logging
+```
+
+### 📁 **Database Layer** (`/database`)
+
+```
+database/
+├── index.js                    # Configurazione database
+├── models/                     # Modelli Sequelize
+│   ├── User.js                # Modello utente
+│   ├── Chat.js                # Modello chat
+│   ├── Message.js             # Modello messaggio
+│   ├── Model.js               # Modello AI
+│   ├── Provider.js            # Modello provider
+│   ├── Transaction.js         # Modello transazioni
+│   ├── Wallet.js              # Modello wallet
+│   ├── Folder.js              # Modello cartelle
+│   ├── Lead.js                # Modello lead
+│   ├── UserSettings.js        # Impostazioni utente
+│   ├── UserAccess.js          # Accessi utente
+│   ├── Prompt.js              # Modello prompt
+│   ├── Attachment.js          # Modello allegati
+│   ├── Subscription.js        # Modello abbonamenti
+│   ├── ModelSubscription.js   # Abbonamenti modelli
+│   ├── ModelStatsAA.js        # Statistiche modelli
+│   ├── ModelPriceScore.js     # Punteggi prezzi
+│   ├── AggregatedModel.js     # Modelli aggregati
+│   └── ...                    # Altri modelli
+└── migrations/                 # Migrazioni database
+```
+
+### 📁 **Controllers** (`/controllers`)
+
+```
+controllers/
+├── anthropic.controller.js     # Controller Anthropic
+├── deepseek.controller.js      # Controller DeepSeek
+├── openrouter.controller.js    # Controller OpenRouter
+├── paymentController.js        # Controller pagamenti
+├── analytics.controller.js     # Controller analytics
+├── lead.controller.js          # Controller lead
+├── uploads.controller.js       # Controller upload
+└── waitlist.controller.js      # Controller waitlist
+```
+
+### 📁 **Middlewares** (`/middlewares`)
+
+```
+middlewares/
+├── index.js                    # Esportazioni middleware
+├── auth.middleware.js          # Autenticazione
+├── error.middleware.js         # Gestione errori
+├── rateLimiter.middleware.js   # Rate limiting
+├── validation.middleware.js    # Validazione
+├── user-access.middleware.js   # Controllo accessi
+└── btcpayWebhook.js           # Webhook BTCPay
+```
+
+### 📁 **Configuration** (`/config`)
+
+```
+config/
+├── config.js                   # Configurazione generale
+├── database.js                 # Configurazione database
+├── passport.js                 # Configurazione Passport
+├── cors.js                     # Configurazione CORS
+├── swagger.js                  # Configurazione Swagger
+├── multer.js                   # Configurazione upload
+├── bodyParser.js               # Configurazione body parser
+├── router.js                   # Configurazione router
+├── model-management.js         # Gestione modelli
+├── model-management.env.js     # Environment modelli
+├── model-management.env.example # Esempio environment
+├── model-management.env.custom.js # Environment custom
+└── model-management.production.js # Environment produzione
+```
+
+### 📁 **Scripts** (`/scripts`)
+
+```
+scripts/
+├── db-manager.js               # Gestione database
+├── export-swagger.js           # Esportazione Swagger
+├── fix-migration-issues.js     # Fix migrazioni
+├── verify-setup.js             # Verifica setup
+├── verify-model-stats.js       # Verifica statistiche
+├── process-email-queue.js      # Processo coda email
+├── force-sync.js               # Sincronizzazione forzata
+├── start-sync.js               # Avvio sincronizzazione
+├── remove-duplicated-indexes-from-db.js # Pulizia indici
+├── run-migration-auto-selector.js # Migrazione auto-selector
+├── test-vbout.js              # Test Vbout
+├── README.md                   # Documentazione script
+├── setup-init/                 # Script inizializzazione
+├── update-models-info/         # Aggiornamento info modelli
+├── model-management/           # Gestione modelli
+├── api-addons-py/             # Addon Python API
+└── utils/                      # Utility script
+```
+
+### 📁 **Tests** (`/__tests__`)
+
+```
+__tests__/
+├── api/                        # Test API
+├── fixtures/                   # Fixtures test
+├── integration/                # Test integrazione
+├── performance/                # Test performance
+├── scripts/                    # Test script
+├── services/                   # Test servizi
+├── setup/                      # Setup test
+├── templates/                  # Template test
+└── unit/                       # Test unitari
+```
+
+### 📁 **Documentation** (`/docs`)
+
+```
+docs/
+├── api-documentation.md        # Documentazione API
+├── auth.md                     # Documentazione auth
+├── database-sync-management.md # Gestione sync DB
+├── error-handling.md           # Gestione errori
+├── logging-api-reference.md    # API logging
+├── model-management-system.md  # Sistema gestione modelli
+├── migration-guide.md          # Guida migrazioni
+├── setup-from-scratch-guide.md # Setup da zero
+├── unified-model-manager.md    # Manager modelli unificato
+├── examples/                   # Esempi
+└── ...                        # Altri documenti
+```
+
+### 📁 **Memory Bank** (`/memory-bank`)
+
+```
+memory-bank/
+├── overview.md                 # Panoramica progetto
+├── api/                        # Documentazione API
+├── architecture/               # Documentazione architettura
+├── context/                    # Contesto progetto
+├── decisions/                  # Decisioni architetturali
+└── google-veo-integration/     # Integrazione Google Veo
+```
+
+### 📁 **Uploads** (`/uploads`)
+
+```
+uploads/
+├── audio/                      # File audio
+├── documents/                  # Documenti
+├── images/                     # Immagini
+├── videos/                     # Video
+├── test/                       # File di test
+├── ai_models_descriptions_edo.json # Descrizioni modelli
+├── model_family_rules.json     # Regole famiglie modelli
+├── openrouter_list_models_response.json # Risposta modelli OpenRouter
+└── ...                        # Altri file
+```
+
+### 📁 **Templates** (`/templates`)
+
+```
+templates/
+└── emails/                     # Template email
+    ├── magic-link.mjml         # Template magic link
+    ├── purchase-confirmation.mjml # Template conferma acquisto
+    └── verification.mjml       # Template verifica
+```
+
+### 📁 **Public** (`/public`)
+
+```
+public/
+└── swagger/                    # Documentazione Swagger
+    ├── index.html              # Interfaccia Swagger
+    └── swagger.json            # Specifiche API
+```
+
+## File di Configurazione Importanti
+
+### **File di Setup OAuth**
+
+-   `setup-alby-oauth.js` - Setup OAuth Alby
+-   `setup-github-oauth.js` - Setup OAuth GitHub
+-   `setup-google-oauth.js` - Setup OAuth Google
+-   `setup-microsoft-oauth.js` - Setup OAuth Microsoft
+-   `setup-portal-oauth.js` - Setup OAuth Portal
+
+### **File di Debug e Verifica**
+
+-   `debug-oauth-production.js` - Debug OAuth produzione
+-   `debug-sync-process.js` - Debug processo sync
+-   `verify-production-oauth.js` - Verifica OAuth produzione
+-   `fix-production-oauth.js` - Fix OAuth produzione
+
+### **File di Utility**
+
+-   `check-user.js` - Verifica utente
+-   `check-aggregated-models.js` - Verifica modelli aggregati
+-   `check-price-scores.js` - Verifica punteggi prezzi
+-   `fix-chats-foreign-key.js` - Fix foreign key chat
+
+## Convenzioni di Nomenclatura
+
+### **File JavaScript**
+
+-   **Services**: `*.service.js`
+-   **Controllers**: `*.controller.js`
+-   **Middlewares**: `*.middleware.js`
+-   **Models**: PascalCase (es. `User.js`)
+-   **Routes**: `*.routes.js` (in `/routes`)
+
+### **Directory**
+
+-   **API**: `/api/v1/`
+-   **Services**: `/services/`
+-   **Models**: `/database/models/`
+-   **Tests**: `/__tests__/`
+-   **Scripts**: `/scripts/`
+-   **Docs**: `/docs/`
+
+## Architettura del Sistema
+
+### **Layer Pattern**
+
+1. **API Layer** (`/api`) - Endpoint REST
+2. **Controllers** (`/controllers`) - Logica di controllo
+3. **Services** (`/services`) - Logica di business
+4. **Models** (`/database/models`) - Modelli dati
+5. **Middlewares** (`/middlewares`) - Intercettori
+
+### **Gestione Modelli AI**
+
+-   **Model Management**: `/services/model-management/`
+-   **Provider Adapters**: `/services/model-management/adapters/`
+-   **CLI Tools**: `/services/model-management/cli/`
+
+### **Sistema di Logging**
+
+-   **Core**: `/services/logging/core/`
+-   **Adapters**: `/services/logging/adapters/`
+-   **Middleware**: `/services/logging/middleware/`
+-   **Config**: `/services/logging/config/`
+
+## Note Importanti
+
+1. **Database**: Utilizza Sequelize ORM con migrazioni
+2. **Testing**: Jest per test unitari e integrazione
+3. **Documentation**: Swagger per API, Markdown per docs
+4. **Logging**: Sistema centralizzato con correlation ID
+5. **OAuth**: Supporto multiplo provider (Google, GitHub, Microsoft, etc.)
+6. **Payments**: Integrazione Stripe e Bitcoin
+7. **AI Models**: Gestione unificata con provider multipli
+8. **File Upload**: Supporto per audio, video, documenti, immagini
+   description:
+   globs:
+   alwaysApply: false
+
+---

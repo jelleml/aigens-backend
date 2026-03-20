@@ -1,0 +1,194 @@
+openapi: 3.0.0
+info:
+    title: AIGens API - Messages
+    version: 1.0.0
+    description: >
+        Documentazione delle API per la gestione dei messaggi, inclusa la modalità SSE (Server-Sent Events) per aggiornamenti in tempo reale.
+
+paths:
+    /api/v1/chats/{chatId}/messages:
+        post:
+            summary: Invia un nuovo messaggio in una chat (supporta SSE)
+            description: |
+                Invia un messaggio a un agente AI. Supporta due modalità di risposta:
+
+                - **Modalità JSON (default):** Risposta completa al termine dell'elaborazione
+                - **Modalità SSE:** Aggiornamenti in tempo reale durante l'elaborazione (impostare l'header `Accept: text/event-stream`)
+            tags:
+                - Messages
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: chatId
+                  required: true
+                  schema:
+                      type: integer
+                  description: ID della chat
+                - in: header
+                  name: Accept
+                  schema:
+                      type: string
+                      enum:
+                          - application/json
+                          - text/event-stream
+                  description: >-
+                      Tipo di risposta richiesta:
+                      - `application/json` - Risposta JSON standard (default)
+                      - `text/event-stream` - Server-Sent Events per aggiornamenti in tempo reale
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - content
+                                - id_model
+                            properties:
+                                content:
+                                    type: string
+                                    description: Contenuto del messaggio
+                                agent_type:
+                                    type: string
+                                    enum:
+                                        - chat
+                                        - image
+                                        - video
+                                    default: chat
+                                    description: Tipo di agente
+                                id_model:
+                                    type: integer
+                                files:
+                                    type: array
+                                    items:
+                                        type: string
+                                        format: binary
+                                    description: File da allegare al messaggio (max 5)
+                                image_options:
+                                    type: object
+                                    properties:
+                                        count:
+                                            type: integer
+                                            default: 1
+                                        style:
+                                            type: string
+                                            default: natural
+                                        aspect_ratio:
+                                            type: string
+                                            default: 1:1
+            responses:
+                "200":
+                    description: "Risposta SSE (quando Accept: text/event-stream)"
+                    content:
+                        text/event-stream:
+                            schema:
+                                type: string
+                            examples:
+                                process_started:
+                                    summary: Inizio processo
+                                    value: |
+                                        data: {"type":"process_started","message":"Inizializzazione della richiesta..."}
+                                processing:
+                                    summary: Elaborazione in corso
+                                    value: |
+                                        data: {"type":"processing","message":"Elaborazione con Claude in corso..."}
+                                completed:
+                                    summary: Completamento
+                                    value: |
+                                        data: {"type":"completed","data":{"userMessage":{...},"assistantMessage":{...}}}
+                                error:
+                                    summary: Errore
+                                    value: |
+                                        data: {"type":"error","error":"Fondi insufficienti","details":"..."}
+                "201":
+                    description: "Messaggio inviato con successo (quando Accept: application/json)"
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: object
+                                        properties:
+                                            userMessage:
+                                                $ref: "#/components/schemas/Message"
+                                            assistantMessage:
+                                                $ref: "#/components/schemas/Message"
+                "400":
+                    description: Dati non validi
+                "401":
+                    description: Non autorizzato
+                "402":
+                    description: Fondi insufficienti
+                "404":
+                    description: Chat non trovata
+                "500":
+                    description: Errore del server
+
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+    schemas:
+        Message:
+            type: object
+            properties:
+                id:
+                    type: integer
+                chat_id:
+                    type: integer
+                role:
+                    type: string
+                    example: user
+                content:
+                    type: string
+                agent_type:
+                    type: string
+                    example: chat
+                agent_model:
+                    type: string
+                    example: claude-3-opus
+                created_at:
+                    type: string
+                    format: date-time
+                Attachments:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Attachment"
+        Attachment:
+            type: object
+            properties:
+                id:
+                    type: integer
+                file_type:
+                    type: string
+                file_name:
+                    type: string
+                file_path:
+                    type: string
+        SSEEvent:
+            type: object
+            properties:
+                type:
+                    type: string
+                    enum:
+                        - process_started
+                        - generating_image
+                        - processing
+                        - image_generated
+                        - completed
+                        - error
+                message:
+                    type: string
+                data:
+                    type: object
+                error:
+                    type: string
+                details:
+                    type: string

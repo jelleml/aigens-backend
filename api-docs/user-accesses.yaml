@@ -1,0 +1,148 @@
+openapi: 3.0.0
+info:
+    title: AIGens API - User Accesses
+    version: 1.0.0
+    description: Documentazione delle API per la gestione degli accessi utente.
+
+paths:
+    /api/v1/user-accesses:
+        get:
+            summary: Ottiene tutti gli accessi dell'utente attuale
+            tags: [UserAccesses]
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: query
+                  name: limit
+                  schema:
+                      type: integer
+                      default: 100
+                  description: Numero massimo di accessi da restituire
+                - in: query
+                  name: offset
+                  schema:
+                      type: integer
+                      default: 0
+                  description: Numero di accessi da saltare
+            responses:
+                "200":
+                    description: Lista di accessi utente
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/UserAccess"
+                "401":
+                    description: Non autorizzato
+                "500":
+                    description: Errore del server
+    /api/v1/user-accesses/stats:
+        get:
+            summary: Ottiene le statistiche sugli accessi dell'utente
+            tags: [UserAccesses]
+            security:
+                - bearerAuth: []
+            responses:
+                "200":
+                    description: Statistiche sugli accessi utente
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        $ref: "#/components/schemas/UserAccessStats"
+                "401":
+                    description: Non autorizzato
+                "500":
+                    description: Errore del server
+    /api/v1/user-accesses/{accessId}:
+        get:
+            summary: Ottiene i dettagli di un singolo accesso
+            tags: [UserAccesses]
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: accessId
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                  description: ID dell'accesso
+            responses:
+                "200":
+                    description: Dettagli dell'accesso
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        $ref: "#/components/schemas/UserAccess"
+                "401":
+                    description: Non autorizzato
+                "500":
+                    description: Errore del server
+
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+    schemas:
+        UserAccess:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                device_type:
+                    type: string
+                    enum: [mobile, tablet, desktop]
+                browser:
+                    type: string
+                operating_system:
+                    type: string
+                ip_address:
+                    type: string
+                accessed_at:
+                    type: string
+                    format: date-time
+        UserAccessStats:
+            type: object
+            properties:
+                total:
+                    type: integer
+                deviceStats:
+                    type: array
+                    items:
+                        type: object
+                browserStats:
+                    type: array
+                    items:
+                        type: object
+                osStats:
+                    type: array
+                    items:
+                        type: object
+                firstAccess:
+                    type: string
+                    format: date-time
+                lastAccess:
+                    type: string
+                    format: date-time

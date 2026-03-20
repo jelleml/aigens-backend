@@ -1,0 +1,397 @@
+openapi: 3.0.0
+info:
+  title: Users Stats API
+  description: API endpoints for user statistics and analytics dashboard
+  version: 1.0.0
+
+paths:
+  /api/v1/users/stats/usage:
+    get:
+      tags:
+        - UserStats
+      summary: Ottiene le statistiche di utilizzo crediti per trend line
+      description: Restituisce i dati di utilizzo crediti nel tempo per visualizzare grafici a linee nel dashboard. L'utente viene identificato automaticamente dal JWT token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: Data di inizio filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-01"
+        - name: date_to
+          in: query
+          required: false
+          description: Data di fine filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-31"
+      responses:
+        '200':
+          description: Statistiche di utilizzo crediti recuperate con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatsResponse'
+              example:
+                success: true
+                data:
+                  - id: 135
+                    id_user: "65e3d55a-4ef6-4774-9a56-bf3a32652c31"
+                    type: "trendline_usage_credits"
+                    label: "day7"
+                    value: 1
+                    aggregation_level: "1day"
+                    calculated_at: "2025-07-09T22:26:07.000Z"
+                    created_at: "2025-07-09T22:26:07.000Z"
+                    updated_at: "2025-07-09T22:26:07.000Z"
+        '400':
+          description: Errore nei parametri di input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Non autorizzato - token JWT mancante o non valido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Errore interno del server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/stats/favourites/models:
+    get:
+      tags:
+        - UserStats
+      summary: Ottiene le statistiche dei modelli preferiti per pie chart
+      description: Restituisce i dati di utilizzo dei modelli preferiti per visualizzare grafici a torta nel dashboard. L'utente viene identificato automaticamente dal JWT token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: Data di inizio filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-01"
+        - name: date_to
+          in: query
+          required: false
+          description: Data di fine filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-31"
+      responses:
+        '200':
+          description: Statistiche modelli preferiti recuperate con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatsResponse'
+              example:
+                success: true
+                data:
+                  - id: 129
+                    id_user: "65e3d55a-4ef6-4774-9a56-bf3a32652c31"
+                    type: "pie_fav_models_count"
+                    label: "gpt-4"
+                    value: 4
+                    aggregation_level: "1day"
+                    calculated_at: "2025-07-09T22:26:07.000Z"
+                    created_at: "2025-07-09T22:26:07.000Z"
+                    updated_at: "2025-07-09T22:26:07.000Z"
+        '400':
+          description: Errore nei parametri di input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Non autorizzato - token JWT mancante o non valido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Errore interno del server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/stats/favourites/categories:
+    get:
+      tags:
+        - UserStats
+      summary: Ottiene le statistiche delle categorie preferite per pie chart
+      description: Restituisce i dati di utilizzo delle categorie preferite per visualizzare grafici a torta nel dashboard. L'utente viene identificato automaticamente dal JWT token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: Data di inizio filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-01"
+        - name: date_to
+          in: query
+          required: false
+          description: Data di fine filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-31"
+      responses:
+        '200':
+          description: Statistiche categorie preferite recuperate con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatsResponse'
+              example:
+                success: true
+                data:
+                  - id: 133
+                    id_user: "65e3d55a-4ef6-4774-9a56-bf3a32652c31"
+                    type: "pie_categories_count"
+                    label: "text"
+                    value: 9
+                    aggregation_level: "1day"
+                    calculated_at: "2025-07-09T22:26:07.000Z"
+                    created_at: "2025-07-09T22:26:07.000Z"
+                    updated_at: "2025-07-09T22:26:07.000Z"
+        '400':
+          description: Errore nei parametri di input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Non autorizzato - token JWT mancante o non valido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Errore interno del server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/stats/savings/total:
+    get:
+      tags:
+        - UserStats
+      summary: Ottiene le statistiche del risparmio totale
+      description: Restituisce i dati del risparmio totale per visualizzare nel dashboard. L'utente viene identificato automaticamente dal JWT token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: Data di inizio filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-01"
+        - name: date_to
+          in: query
+          required: false
+          description: Data di fine filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-31"
+      responses:
+        '200':
+          description: Statistiche risparmio totale recuperate con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatsResponse'
+              example:
+                success: true
+                data:
+                  - id: 145
+                    id_user: "65e3d55a-4ef6-4774-9a56-bf3a32652c31"
+                    type: "savings_total"
+                    label: "savings_total"
+                    value: 18
+                    aggregation_level: "1day"
+                    calculated_at: "2025-07-09T22:26:07.000Z"
+                    created_at: "2025-07-09T22:26:07.000Z"
+                    updated_at: "2025-07-09T22:26:07.000Z"
+        '400':
+          description: Errore nei parametri di input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Non autorizzato - token JWT mancante o non valido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Errore interno del server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/stats/savings/by_provider:
+    get:
+      tags:
+        - UserStats
+      summary: Ottiene le statistiche del risparmio per provider
+      description: Restituisce i dati del risparmio suddiviso per provider/modello per visualizzare nel dashboard. L'utente viene identificato automaticamente dal JWT token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: Data di inizio filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-01"
+        - name: date_to
+          in: query
+          required: false
+          description: Data di fine filtro (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2025-07-31"
+      responses:
+        '200':
+          description: Statistiche risparmio per provider recuperate con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatsResponse'
+              example:
+                success: true
+                data:
+                  - id: 146
+                    id_user: "65e3d55a-4ef6-4774-9a56-bf3a32652c31"
+                    type: "savings_total_model"
+                    label: "gpt-4"
+                    value: 12
+                    aggregation_level: "1day"
+                    calculated_at: "2025-07-09T22:26:07.000Z"
+                    created_at: "2025-07-09T22:26:07.000Z"
+                    updated_at: "2025-07-09T22:26:07.000Z"
+        '400':
+          description: Errore nei parametri di input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Non autorizzato - token JWT mancante o non valido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Errore interno del server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UserStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indica se la richiesta è andata a buon fine
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserModelUsageStat'
+    UserModelUsageStat:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID univoco della statistica
+          example: 129
+        id_user:
+          type: string
+          description: ID dell'utente (UUID)
+          example: "65e3d55a-4ef6-4774-9a56-bf3a32652c31"
+        type:
+          type: string
+          description: Tipo di statistica
+          enum: [trendline_usage_credits, pie_fav_models_count, pie_categories_count, savings_total, savings_total_model]
+          example: "trendline_usage_credits"
+        label:
+          type: string
+          description: Etichetta descrittiva della statistica
+          example: "day7"
+        value:
+          type: number
+          description: Valore numerico della statistica
+          example: 150.5
+        aggregation_level:
+          type: string
+          description: Livello di aggregazione temporale
+          enum: [day, last7days, last14days, last30days, thisMonth, last3month, year, 1day]
+          example: "1day"
+        calculated_at:
+          type: string
+          format: date-time
+          description: Data e ora del calcolo della statistica
+          example: "2025-07-09T22:26:07.000Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Data di creazione del record
+          example: "2025-07-09T22:26:07.000Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Data di ultimo aggiornamento
+          example: "2025-07-09T22:26:07.000Z"
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "user_id parameter is required"
+
+tags:
+  - name: UserStats
+    description: API per le statistiche utente e analytics dashboard

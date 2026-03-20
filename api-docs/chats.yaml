@@ -1,0 +1,163 @@
+openapi: 3.0.0
+info:
+    title: AIGens API - Chats
+    version: 1.0.0
+    description: Documentazione delle API per la gestione delle chat.
+
+paths:
+    /api/v1/chats:
+        get:
+            summary: Ottiene tutte le chat dell'utente autenticato
+            tags: [Chats]
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: query
+                  name: page
+                  schema:
+                      type: integer
+                      default: 1
+                  description: Numero di pagina
+                - in: query
+                  name: limit
+                  schema:
+                      type: integer
+                      default: 10
+                  description: Numero di elementi per pagina
+                - in: query
+                  name: search
+                  schema:
+                      type: string
+                  description: Termine di ricerca per filtrare le chat
+                - in: query
+                  name: sort
+                  schema:
+                      type: string
+                      default: last_message_at
+                  description: Campo per ordinare i risultati
+                - in: query
+                  name: order
+                  schema:
+                      type: string
+                      enum: [ASC, DESC]
+                      default: DESC
+                  description: Ordine dei risultati (ascendente o discendente)
+            responses:
+                "200":
+                    description: Lista delle chat recuperata con successo
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: object
+                                        properties:
+                                            chats:
+                                                type: array
+                                                items:
+                                                    $ref: "#/components/schemas/Chat"
+                                            pagination:
+                                                $ref: "#/components/schemas/Pagination"
+                "401":
+                    description: Non autorizzato
+                "500":
+                    description: Errore del server
+
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+    schemas:
+        Chat:
+            type: object
+            properties:
+                id:
+                    type: integer
+                user_id:
+                    type: integer
+                title:
+                    type: string
+                agent_type:
+                    type: string
+                agent_model:
+                    type: string
+                is_active:
+                    type: boolean
+                last_message_at:
+                    type: string
+                    format: date-time
+                Messages:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Message"
+                is_pinned:
+                    type: boolean
+                models_providers:
+                    type: array
+                    description: Array dei modelli distinti utilizzati in questa specifica chat
+                    items:
+                        $ref: "#/components/schemas/ModelProvider"
+        ModelProvider:
+            type: object
+            properties:
+                model_id:
+                    type: integer
+                    description: ID del modello
+                model_name:
+                    type: string
+                    description: Nome del modello
+                model_slug:
+                    type: string
+                    description: Slug del modello
+                provider_id:
+                    type: integer
+                    description: ID del provider
+                provider_name:
+                    type: string
+                    description: Nome del provider
+        Message:
+            type: object
+            properties:
+                id:
+                    type: integer
+                chat_id:
+                    type: integer
+                role:
+                    type: string
+                content:
+                    type: string
+                created_at:
+                    type: string
+                    format: date-time
+                Attachments:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Attachment"
+        Attachment:
+            type: object
+            properties:
+                id:
+                    type: integer
+                file_type:
+                    type: string
+                file_name:
+                    type: string
+                file_path:
+                    type: string
+        Pagination:
+            type: object
+            properties:
+                total:
+                    type: integer
+                page:
+                    type: integer
+                limit:
+                    type: integer
+                pages:
+                    type: integer

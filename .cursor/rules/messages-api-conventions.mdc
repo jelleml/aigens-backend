@@ -1,0 +1,495 @@
+# Convenzioni API Messaggistica Aigens
+
+## Panoramica
+
+Il file [api/v1/messages.js](mdc:api/v1/messages.js) è il cuore del sistema di messaggistica Aigens, gestendo tutte le interazioni con i modelli AI, il caricamento di file, la gestione dei costi e lo streaming delle risposte.
+
+## Struttura e Organizzazione
+
+### 1. Imports e Dipendenze
+
+```javascript
+// Sempre all'inizio del file, raggruppati per categoria
+const express = require("express");
+const router = express.Router({ mergeParams: true }); // Importante per parametri router padre
+
+// Database models
+const {
+	Message,
+	Chat,
+	Attachment,
+	MessageCost,
+	Model,
+	Wallet,
+	ModelStatsUsage,
+} = db.sequelize.models;
+
+// Services - sempre in ordine alfabetico
+const anthropicService = require("../../services/anthropic.service");
+const deepseekService = require("../../services/deepseek.service");
+const openaiService = require("../../services/openai.service");
+// ... altri services
+
+// Utilities
+const { v4: uuidv4 } = require("uuid");
+const multer = require("multer");
+```
+
+### 2. Funzioni Helper
+
+Sempre documentate con JSDoc e posizionate prima delle route:
+
+```javascript
+/**
+ * Process attachments to generate appropriate URLs for frontend consumption
+ * @param {Array} attachments - Array of attachment objects from database
+ * @returns {Promise<Array>} Array of processed attachments with proper URLs
+ */
+async function processAttachmentsForFrontend(attachments) {
+	// Implementation
+}
+```
+
+### 3. Configurazione Multer
+
+```javascript
+const storage = multer.diskStorage({
+	destination: (req, file, cb) => {
+		const uploadDir = path.join(__dirname, "../../uploads");
+		cb(null, uploadDir);
+	},
+	filename: (req, file, cb) => {
+		const uniqueFilename = `${uuidv4()}-${file.originalname}`;
+		cb(null, uniqueFilename);
+	},
+});
+
+const upload = multer({
+	storage,
+	limits: {
+		fileSize: 50 * 1024 * 1024, // 50MB
+	},
+	fileFilter: (req, file, cb) => {
+		// Validazione MIME types
+	},
+});
+```
+
+## Gestione Errori e Logging
+
+### 1. Logging Strutturato
+
+```javascript
+// Sempre con prefisso "Messages API:" per identificare facilmente
+console.log("Messages API: Request started - Chat:", chat_id, "User:", userId);
+console.error("Messages API: Error during credit check:", err);
+```
+
+### 2. Gestione Errori Robusta
+
+```javascript
+try {
+	// Operazione principale
+} catch (error) {
+	console.error("Messages API: Critical error in streaming flow:", error);
+	console.error("Messages API: Error stack:", error.stack);
+
+	// Cleanup files se necessario
+	if (req.files && req.files.length > 0) {
+		for (const file of req.files) {
+			await fs
+				.unlink(file.path)
+				.catch((err) =>
+					console.error(`Error removing file ${file.path}:`, err)
+				);
+		}
+	}
+
+	// Solo invia risposta se non è già stata inviata
+	if (!responseSent && !res.headersSent) {
+		res.status(500).json({
+			success: false,
+			error: "Errore interno del server",
+			details: error.message,
+		});
+	}
+}
+```
+
+### 3. Controllo Response Sent
+
+```javascript
+let responseSent = false; // Flag per evitare doppie risposte
+
+// Sempre controllare prima di inviare risposte
+if (!responseSent) {
+	res.status(201).json({ success: true, data: result });
+	responseSent = true;
+}
+```
+
+## Gestione File e Allegati
+
+### 1. Upload su Google Cloud Storage
+
+```javascript
+// Step 1: Upload su GCS
+const cloudResult = await cloudStorage.uploadFileFromPath(
+	file.path,
+	file.originalname,
+	{
+		folder: `chat_${chat_id}`,
+		contentType: file.mimetype,
+		metadata: {
+			user_id: userId,
+			chat_id: chat_id,
+			original_name: file.originalname,
+		},
+	}
+);
+
+// Step 2: Salva nel database
+const attachment = await Attachment.create({
+	message_id: userMessage.id,
+	user_id: userId,
+	chat_id,
+	file_type: getFileTypeFromMimeType(file.mimetype),
+	file_name: cloudResult.fileName,
+	original_name: file.originalname,
+	file_path: cloudResult.gsUrl || cloudResult.filePath,
+	file_size: cloudResult.size || file.size,
+	mime_type: file.mimetype,
+});
+
+// Step 3: Cleanup file locale
+await fs
+	.unlink(file.path)
+	.catch((err) =>
+		console.warn(`Could not delete local file: ${err.message}`)
+	);
+```
+
+### 2. Processamento URL per Frontend
+
+```javascript
+// Per file GCS, genera signed URL
+if (attachment.file_path && attachment.file_path.startsWith("gs://")) {
+	const signedUrl = await gcsService.getSignedUrl(filePath, {
+		action: "read",
+		expires: Date.now() + 15 * 60 * 1000, // 15 minuti
+	});
+	processed.downloadUrl = signedUrl;
+	processed.isGcsFile = true;
+} else {
+	// Per file locali, costruisci URL endpoint
+	processed.downloadUrl = `/api/v1/uploads/images/${attachment.file_name}`;
+	processed.isGcsFile = false;
+}
+```
+
+## Gestione Costi e Bilanci
+
+### 1. Stima Costi Pre-Request
+
+```javascript
+// Service-specific cost estimation
+if (modelInstance.provider?.name === "ideogram") {
+	const ideogramCost = await ideogramService.calculateCost(
+		modelInstance.id,
+		imageCount,
+		"Generate"
+	);
+	totalCostTokens = Math.ceil(ideogramCost.totalCost * 1000);
+} else {
+	// Use Python addon for text models
+	const costEstimation = await pythonAddonService.getExpectedCost(
+		content,
+		model_id,
+		"categories",
+		"Qwen/Qwen2.5-7B-Instruct-Turbo",
+		numberOfAttachments,
+		false
+	);
+	totalCostTokens = pythonAddonService.extractTotalCostTokens(costEstimation);
+}
+```
+
+### 2. Controllo Bilancio
+
+```javascript
+// Check user balance against cost estimate
+if (!wallet || wallet.balance < totalCostTokens) {
+	console.warn(`Messages API: Insufficient funds for user ${userId}`);
+	return res.status(402).json({
+		success: false,
+		error: "Fondi insufficienti",
+		details: `Costo stimato: ${totalCostTokens} crediti`,
+	});
+}
+```
+
+### 3. Calcolo Costi Post-Response
+
+```javascript
+// Skip cost calculation for special providers
+if (modelInstance.provider?.name === "ideogram") {
+	finalCost = {
+		total_cost_for_user: 0, // Already deducted by service
+		total_cost_aigens: 0,
+		// ... altri campi
+	};
+} else {
+	const costCalculator = new CostCalculator();
+	finalCost = await costCalculator.calculateCost({
+		provider: providerName,
+		modelId: modelInstance.id,
+		apiModelId: model_id,
+		inputTokens: inputTokens,
+		outputTokens: outputTokens,
+	});
+}
+```
+
+## Streaming e SSE
+
+### 1. Rilevamento Modalità Streaming
+
+```javascript
+const useStreaming =
+	req.headers.accept === "text/event-stream" ||
+	req.headers["x-streaming"] === "true";
+
+if (useStreaming) {
+	res.writeHead(200, {
+		"Content-Type": "text/event-stream",
+		"Cache-Control": "no-cache",
+		Connection: "keep-alive",
+		"X-Accel-Buffering": "no",
+	});
+
+	sendEvent = (type, data) => {
+		if (!res.finished) {
+			res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+		}
+	};
+}
+```
+
+### 2. Eventi Streaming
+
+```javascript
+sendEvent("process_started", {
+	message: "Inizializzazione della richiesta...",
+});
+sendEvent("delta", { text: chunk });
+sendEvent("completed", { text: fullText, cost: finalCost });
+sendEvent("error", { error: "Errore AI", details: err.message });
+```
+
+## Risoluzione Servizi AI
+
+### 1. Pattern di Risoluzione
+
+```javascript
+// Usa sempre modelService.resolveStreamingService
+const serviceInfo = await modelService.resolveStreamingService(model_id);
+
+// Map service name to actual service object
+switch (serviceInfo.service) {
+	case "anthropicService":
+		aiService = anthropicService;
+		break;
+	case "openaiService":
+		aiService = openaiService;
+		break;
+	// ... altri casi
+	default:
+		throw new Error(`Servizio non supportato: ${serviceInfo.service}`);
+}
+```
+
+### 2. Gestione Errori Specifici
+
+```javascript
+if (error.message.includes("Model not found")) {
+	throw new Error(`Modello non trovato nel database: ${model_id}`);
+} else if (error.message.includes("Provider not found")) {
+	throw new Error(`Provider non trovato per il modello: ${model_id}`);
+} else if (error.message.includes("No streaming service available")) {
+	throw new Error(
+		`Nessun servizio di streaming disponibile per il modello: ${model_id}`
+	);
+}
+```
+
+## Statistiche e Categorizzazione
+
+### 1. Salvataggio Statistiche
+
+```javascript
+await saveUsageStatistics({
+	modelId: modelInstance.id,
+	messageId: assistantMessageId,
+	inputLength: content.length,
+	outputLength: fullText.length,
+	categorization: categorization,
+	responseTime: responseTime,
+	expectedCost: 0,
+	effectiveCost: finalCost?.total_cost_for_user || 0,
+	hasAttachments: attachments && attachments.length > 0,
+});
+```
+
+### 2. Categorizzazione Background
+
+```javascript
+// Solo se abbiamo una risposta AI valida
+if (assistantMessageId && fullText && fullText.trim().length > 0) {
+	(async () => {
+		try {
+			const categorization = await pythonAddonService.categorizePrompt(
+				content,
+				false
+			);
+			// ... salvataggio statistiche
+		} catch (err) {
+			console.error(
+				"Background categorization/statistics failed:",
+				err.message
+			);
+			// Don't throw - this is a background operation
+		}
+	})();
+}
+```
+
+## Documentazione Swagger
+
+### 1. Struttura Documentazione
+
+```javascript
+/**
+ * @swagger
+ * /api/v1/chats/{chatId}/messages:
+ *   post:
+ *     summary: Invia un nuovo messaggio in una chat
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID della chat
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *               - id_model
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: Contenuto del messaggio
+ *     responses:
+ *       201:
+ *         description: Messaggio inviato con successo
+ *       400:
+ *         description: Dati non validi
+ *       401:
+ *         description: Non autorizzato
+ *       402:
+ *         description: Fondi insufficienti
+ */
+```
+
+## Best Practices Generali
+
+### 1. Validazione Input
+
+```javascript
+// Controlli minimi sempre all'inizio
+if (!chat_id || !content || !id_model) {
+	const errorMsg = !chat_id
+		? "ID chat è obbligatorio"
+		: !content
+		? "Contenuto è obbligatorio"
+		: "L'ID del modello è obbligatorio";
+	return res.status(400).json({ success: false, error: errorMsg });
+}
+```
+
+### 2. Cleanup File
+
+```javascript
+// Sempre pulire i file in caso di errore
+if (req.files && req.files.length > 0) {
+	for (const file of req.files) {
+		await fs
+			.unlink(file.path)
+			.catch((err) =>
+				console.error(`Error removing file ${file.path}:`, err)
+			);
+	}
+}
+```
+
+### 3. Transazioni Database
+
+```javascript
+const transaction = await sequelize.transaction();
+try {
+	// Operazioni database
+	await transaction.commit();
+} catch (error) {
+	if (!transaction.finished) {
+		await transaction.rollback();
+	}
+	throw error;
+}
+```
+
+### 4. Gestione Token Speciali
+
+```javascript
+// Per modelli che non usano token (immagini, video)
+if (modelInstance.provider?.name === "ideogram") {
+	inputTokens = 0;
+	outputTokens = 0;
+	console.log("Ideogram model - tokens set to 0 (images don't use tokens)");
+} else {
+	// Stima token per modelli di testo
+	if (inputTokens === 0) {
+		inputTokens = Math.ceil(content.length / 4);
+	}
+	if (outputTokens === 0) {
+		outputTokens = Math.ceil(fullText.length / 4);
+	}
+}
+```
+
+## Convenzioni di Nomenclatura
+
+-   **Variabili**: camelCase (`chatId`, `userId`, `modelId`)
+-   **Costanti**: UPPER_SNAKE_CASE (`MAX_FILE_SIZE`, `ALLOWED_MIME_TYPES`)
+-   **Funzioni**: camelCase (`processAttachmentsForFrontend`, `saveUsageStatistics`)
+-   **Log Messages**: Prefisso "Messages API:" seguito da descrizione chiara
+-   **Error Messages**: Sempre in italiano, chiari e specifici
+
+## Sicurezza
+
+-   **Autenticazione**: Sempre `authMiddleware.authenticate` su tutte le route
+-   **Validazione**: Controllo ownership di chat e messaggi
+-   **File Upload**: Validazione MIME types e dimensioni
+-   **Rate Limiting**: Implementato a livello middleware
+-   **Error Handling**: Non esporre dettagli interni in produzione
+    description:
+    globs:
+    alwaysApply: false
+
+---
